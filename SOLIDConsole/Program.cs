@@ -23,16 +23,16 @@ class Program
         // Создание PDFProcessor с использованием интерфейсов
         PDFProcessor pdfProcessor = new PDFProcessor(parsing, orderNumber, dateBase, errorLog);
 
-        foreach (string str in arrayPDF)
+        foreach (string str in arrayPDF) 
         {
             pdfProcessor.Process(str);
         }
     }
 
-}
+    }
 
-public class PDFProcessor
-{
+    public class PDFProcessor
+    {
     private readonly IPDFParsing _parsing;
     private readonly IOrderNumber _orderNumber;
     private readonly IDataBase _dateBase;
@@ -75,43 +75,43 @@ public interface IProcess
 public class Process 
 {
     private readonly IPDFParsing _parsing;
-    private readonly OrderNumber _orderNumber;
+        private readonly OrderNumber _orderNumber;
     private readonly DB _dateBase;
     private readonly ILOG _errorLog;
 
     public Process(IPDFParsing parsing, OrderNumber orderNumber, DB dateBase, ILOG errorLog)
-    {
-        _parsing = parsing;
-        _orderNumber = orderNumber;
-        _dateBase = dateBase;
-        _errorLog = errorLog;
-    }
+        {
+            _parsing = parsing;
+            _orderNumber = orderNumber;
+            _dateBase = dateBase;
+            _errorLog = errorLog;
+        }
 
     public void Write(string PathPDF) 
-    {
-        try
         {
-            byte[] byteArray = File.ReadAllBytes(PathPDF);
-            string text = _parsing.Parse(PathPDF);
-            int? number = _orderNumber.ResultNumber(text);
-
-            if (number != null)
+            try
             {
-                _dateBase.WriteDB(number.Value, byteArray);
+                byte[] byteArray = File.ReadAllBytes(PathPDF);
+                string text = _parsing.Parse(PathPDF);
+                int? number = _orderNumber.ResultNumber(text);
+
+                if (number != null) 
+                {
+                    _dateBase.WriteDB(number.Value, byteArray);
+                }
+            }
+            catch (Exception ex) 
+            {
+                _errorLog.Log(PathPDF, ex.ToString());
             }
         }
-        catch (Exception ex)
-        {
-            _errorLog.Log(PathPDF, ex.ToString());
-        }
-    }
 }
 
 
 public interface IPDFParsing 
 {
     string Parse(string path);
-}
+    }
 
 public class PDFParsing : IPDFParsing
 {
@@ -123,31 +123,31 @@ public class PDFParsing : IPDFParsing
         _error = error;
     }
 
-    public string Parse(string path) 
-    {
-        try
+        public string Parse(string path) 
         {
-            using (PdfReader reader = new PdfReader(path))
+            try
             {
-                StringWriter result = new StringWriter();
-                string textPage = string.Empty;
-
-                for (int i = 1; i <= reader.NumberOfPages; i++)
+                using (PdfReader reader = new PdfReader(path))
                 {
-                    textPage = PdfTextExtractor.GetTextFromPage(reader, i);
-                    result.Write(textPage);
-                }
+                    StringWriter result = new StringWriter();
+                    string textPage = string.Empty;
 
-                return result.ToString();
+                    for (int i = 1; i <= reader.NumberOfPages; i++)
+                    {
+                        textPage = PdfTextExtractor.GetTextFromPage(reader, i);
+                        result.Write(textPage);
+                    }
+
+                    return result.ToString();
+                }
+            }
+            catch (Exception error)
+            {
+            _error.Log(path, error.ToString());
+                return $"Ошибка в {path}";
             }
         }
-        catch (Exception error)
-        {
-            _error.Log(path, error.ToString());
-            return $"Ошибка в {path}";
-        }
     }
-}
 
 public interface IOrderNumber 
 {
@@ -155,20 +155,20 @@ public interface IOrderNumber
 }
 
 public class OrderNumber : IOrderNumber
-{
-    public int? ResultNumber(string text) 
     {
-        string searchNumber = @"Номер заказа\s*:\s*(\d+)";
-        Match match = Regex.Match(text, searchNumber);
-
-        if (match.Success)
+        public int? ResultNumber(string text) 
         {
-            return int.Parse(match.Groups[1].Value);
-        }
+            string searchNumber = @"Номер заказа\s*:\s*(\d+)";
+            Match match = Regex.Match(text, searchNumber);
 
-        return null;
+            if (match.Success) 
+            {
+                return int.Parse(match.Groups[1].Value);
+            }
+
+            return null;
+        }
     }
-}
 
 // Парсинг PDF
 public interface IPDFReader 
@@ -215,52 +215,53 @@ public class DB : IDataBase
         _error = error;
     }
 
-    public void WriteDB(int number, byte[] fileData)
-    {
-
-        string connectionString = "server=localhost;user=root;password=root;database=files";
-
-        using (MySqlConnection connection = new MySqlConnection(connectionString))
+        public void WriteDB(int number, byte[] fileData)
         {
-            try
+
+            string connectionString = "server=localhost;user=root;password=root;database=files";
+
+            using (MySqlConnection connection = new MySqlConnection(connectionString))
             {
-                connection.Open();
-
-                string check = "SELECT COUNT(*) FROM info WHERE Name = @Number";
-
-                using (MySqlCommand command = new MySqlCommand(check, connection))
+                try
                 {
-                    command.Parameters.AddWithValue("@Number", number);
+                    connection.Open();
 
-                    int count = Convert.ToInt32(command.ExecuteScalar());
+                    string check = "SELECT COUNT(*) FROM info WHERE Name = @Number";
 
-                    if (count > 0)
+                    using (MySqlCommand command = new MySqlCommand(check, connection))
                     {
-                        return;
+                        command.Parameters.AddWithValue("@Number", number);
+
+                        int count = Convert.ToInt32(command.ExecuteScalar());
+
+                        if (count > 0)
+                        {
+                            return;
+                        }
+                    }
+
+                    string query = "INSERT INTO info (Name, Path) VALUES (@Name, @Path)";
+                    using (MySqlCommand command = new MySqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@Name", number);
+                        command.Parameters.AddWithValue("@Path", fileData);
+                        //command.Parameters["@Path"].MySqlDbType = MySqlDbType.Blob;
+
+                        command.ExecuteNonQuery();
                     }
                 }
-
-                string query = "INSERT INTO info (Name, Path) VALUES (@Name, @Path)";
-                using (MySqlCommand command = new MySqlCommand(query, connection))
+                catch (Exception ex)
                 {
-                    command.Parameters.AddWithValue("@Name", number);
-                    command.Parameters.AddWithValue("@Path", fileData);
-
-                    command.ExecuteNonQuery();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
+                    Console.WriteLine($"Error: {ex.Message}");
                 _error.Log(number.ToString(), ex.ToString());
-            }
-            finally
-            {
-                connection.Close();
+                }
+                finally
+                {
+                    connection.Close();
+                }
             }
         }
     }
-}
 
 // Логирование
 public interface ILOG 
@@ -269,35 +270,36 @@ public interface ILOG
 }
 
 public class Loggi : ILOG
-{
-    public void Log(string path, string error) 
     {
-        string connectionString = "server=localhost; user=root; password=root; database=logs";
-
-        using (MySqlConnection connection = new MySqlConnection(connectionString))
+        public void Log(string path, string error) 
         {
-            try
+            string connectionString = "server=localhost; user=root; password=root; database=logs";
+
+            using (MySqlConnection connection = new MySqlConnection(connectionString)) 
             {
-                connection.Open();
-
-                string query = "INSERT INTO info (Path, Error) VALUES (@Path, @Error)";
-
-                using (MySqlCommand command = new MySqlCommand(query, connection))
+                try
                 {
-                    command.Parameters.AddWithValue("@Path", path);
-                    command.Parameters.AddWithValue("@Error", error);
+                    connection.Open();
 
-                    command.ExecuteNonQuery();
+                    string query = "INSERT INTO info (Path, Error) VALUES (@Path, @Error)";
+
+                    using (MySqlCommand command = new MySqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@Path", path);
+                        command.Parameters.AddWithValue("@Error", error);
+
+                        command.ExecuteNonQuery();
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
+                catch (Exception ex)
+                {
 
-                Console.WriteLine($"Error: {ex}");
-            }
-            finally
-            {
-                connection.Close();
+                    Console.WriteLine($"Error: {ex}");
+                }
+                finally 
+                {
+                    connection.Close();
+                }
             }
         }
     }
